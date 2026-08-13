@@ -1,12 +1,13 @@
 import requests
 
-CIUDAD = "Bogotá"
+CIUDAD = "tokyo"
 
 # Servicio 1: Open-Meteo Geocoding (nombre de ciudad -> coordenadas)
 geo = requests.get(
     "https://geocoding-api.open-meteo.com/v1/search",
     params={"name": CIUDAD, "count": 1}
 )
+
 
 # TODO 1: imprimir el código de estado HTTP
 print(geo.status_code)

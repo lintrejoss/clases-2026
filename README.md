@@ -1,4 +1,4 @@
-# Clase 3 — Datos e interacción entre aplicaciones
+# Clase 4 — Datos e interacción entre aplicaciones
 
 ## Propósito
 

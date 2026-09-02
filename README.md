@@ -1,378 +1,288 @@
-# Laboratorio 01 --- Análisis del funcionamiento de una aplicación web
+# Clase 3 — Datos e interacción entre aplicaciones
 
-> **Curso:** Aplicaciones y Servicios Web\
-> **Modalidad:** Práctica de laboratorio\
-> **Entrega:** Repositorio GitHub --- archivo `README.md`\
-> **Evidencias:** Carpeta `evidencias/`
+## Propósito
 
-------------------------------------------------------------------------
+En esta práctica vas a leer un dataset CSV de estudiantes, transformarlo a una estructura propia y generar un archivo JSON.
 
-## Objetivo de la práctica
+El flujo completo es:
 
-Analizar el funcionamiento de una aplicación web real mediante las
-herramientas de desarrollo del navegador, identificando los recursos
-cargados, las solicitudes y respuestas HTTP, la estructura DOM y las
-interacciones entre cliente y servidor.
-
-## Resultado esperado
-
-Al finalizar la práctica, el estudiante deberá poder reconstruir y
-documentar el flujo observado entre:
-
-``` mermaid
-flowchart LR
-    U[Usuario] --> N[Navegador]
-    N --> H[HTTP]
-    H --> S[Servidor]
-    S --> R[Respuesta]
-    R --> N
-    N --> D[DOM]
-    D --> I[Interfaz]
-    I --> U
+```text
+estudiantes.csv → estructuras de Python → transformación → estudiantes_resumen.json
 ```
 
-> El diagrama anterior representa los **componentes que serán
-> analizados**. El diagrama final de la práctica deberá ser construido
-> por el estudiante a partir de sus propias observaciones.
+Al finalizar, podrás identificar cómo una aplicación recibe datos externos, los interpreta, selecciona la información necesaria y produce una representación que otra aplicación podría consumir.
 
-------------------------------------------------------------------------
+## Estructura del proyecto
 
-# 1. Preparación del entorno
-
-1.  Ingrese a la aplicación web indicada por el docente.
-2.  Abra las **herramientas de desarrollo** del navegador.
-3.  Identifique las herramientas **Red / Network** y **Elementos /
-    Elements**.
-4.  Cree la siguiente estructura dentro del repositorio:
-
-``` text
-laboratorio-01/
-├── README.md
-└── evidencias/
+```text
+clase-03-datos/
+├── datos/
+│   └── estudiantes.csv
+├── salida/
+│   └── estudiantes_resumen.json
+├── transformar_estudiantes.py
+└── README.md
 ```
 
-El archivo `README.md` será el informe de la práctica. La carpeta
-`evidencias/` contendrá las capturas utilizadas para sustentar los
-resultados.
+Crea las carpetas `datos/` y `salida/` si aún no existen. Ubica el archivo `estudiantes.csv` dentro de `datos/`.
 
-------------------------------------------------------------------------
+## Requisitos
 
-# 2. Identificación de recursos de la aplicación
+- Python 3 instalado.
+- Editor de código, preferiblemente Visual Studio Code.
+- Git configurado con tu cuenta de GitHub.
 
-Abra la herramienta **Red / Network** y recargue completamente la
-aplicación.
+Esta práctica utiliza únicamente módulos de la biblioteca estándar de Python:
 
-Observe las solicitudes generadas durante la carga e identifique como
-mínimo **cinco recursos**, procurando seleccionar tipos diferentes:
-documento HTML, CSS, JavaScript, imágenes, fuentes u otros.
+- `csv`: permite leer archivos CSV.
+- `json`: permite serializar y deserializar datos JSON.
+- `pathlib`: permite construir rutas de archivos de forma segura.
 
-## Resultados
+No es necesario instalar paquetes con `pip`.
 
-Complete la tabla:
+## Paso 1 — Verificar Python
 
-  Recurso   Tipo   Dominio     Tamaño
-  --------- ------ --------- --------
-                             
-                             
-                             
-                             
-                             
+Crea el archivo `transformar_estudiantes.py` en la carpeta raíz del proyecto y agrega:
 
-**Total de solicitudes observadas:** `_____`
+```python
+print("Hola, Aplicaciones y Servicios Web")
 
-## Evidencia
+nombre = "Valentina"
+semestre = 5
+promedio = 4.2
+activo = True
 
-Guarde una captura de la pestaña Network como:
+print(f"Estudiante: {nombre}")
+print(f"Semestre: {semestre}")
+print(f"Promedio: {promedio}")
+print(f"¿Activo?: {activo}")
 
-``` text
-evidencias/network.png
+print(type(nombre))
+print(type(semestre))
+print(type(promedio))
+print(type(activo))
 ```
 
-Inclúyala aquí:
+Ejecuta el archivo desde la terminal:
 
-``` markdown
-![Recursos cargados por la aplicación](evidencias/network.png)
+```bash
+python transformar_estudiantes.py
 ```
 
-### Análisis
+En Windows, si el comando anterior no funciona:
 
-**¿Por qué una sola URL puede generar múltiples solicitudes HTTP?**
-
-> Escriba aquí su respuesta.
-
-------------------------------------------------------------------------
-
-# 3. Análisis de una solicitud HTTP
-
-En **Network**, seleccione una de las solicitudes realizadas por el
-navegador, preferiblemente la correspondiente al documento principal.
-
-Identifique la información solicitada a continuación.
-
-  Elemento              Resultado
-  --------------------- -----------
-  URL                   
-  Método HTTP           
-  Código de estado      
-  Host / dominio        
-  Tipo de recurso       
-  Tiempo de respuesta   
-
-## Flujo que se está observando
-
-``` mermaid
-sequenceDiagram
-    participant N as Navegador
-    participant S as Servidor
-    N->>S: Solicitud HTTP
-    S-->>N: Respuesta HTTP
+```powershell
+py transformar_estudiantes.py
 ```
 
-## Evidencia
+## Paso 2 — Leer el CSV
 
-Guarde una captura de los detalles de la solicitud como:
+Reemplaza el contenido de `transformar_estudiantes.py` por:
 
-``` text
-evidencias/request.png
+```python
+import csv
+from pathlib import Path
+
+BASE_DIR = Path(__file__).parent
+RUTA_CSV = BASE_DIR / "datos" / "estudiantes.csv"
+
+with open(RUTA_CSV, encoding="utf-8", newline="") as archivo:
+    lector = csv.DictReader(archivo, delimiter=";")
+    estudiantes_externos = list(lector)
+
+print(estudiantes_externos[0])
+print(type(estudiantes_externos))
+print(type(estudiantes_externos[0]))
 ```
 
-Inclúyala en el informe:
+Ejecuta el programa y comprueba que:
 
-``` markdown
-![Análisis de la solicitud HTTP](evidencias/request.png)
+- `estudiantes_externos` es una lista.
+- Cada fila del archivo CSV se representa como un diccionario.
+- Los valores leídos desde el CSV llegan inicialmente como texto.
+
+## Paso 3 — Transformar un estudiante
+
+Agrega al final del archivo:
+
+```python
+estudiante = estudiantes_externos[0]
+
+estudiante_transformado = {
+    "id": estudiante["codigo"],
+    "nombre_completo": f'{estudiante["nombre"]} {estudiante["apellido"]}',
+    "programa": estudiante["programa"],
+    "semestre": int(estudiante["semestre"]),
+    "promedio": float(estudiante["promedio"]),
+    "estado": "Activo" if estudiante["activo"] == "true" else "Inactivo"
+}
+
+print(estudiante_transformado)
 ```
 
-### Análisis
+Verifica estos cambios:
 
-**¿Qué recurso solicitó el navegador?**
+| Dato de entrada | Dato de salida |
+|---|---|
+| `codigo` | `id` |
+| `nombre` + `apellido` | `nombre_completo` |
+| `semestre` como texto | `semestre` como entero |
+| `promedio` como texto | `promedio` como decimal |
+| `activo` con `true` o `false` | `estado` con `Activo` o `Inactivo` |
+| `correo` | No se incluye en la salida |
 
-> Escriba aquí su respuesta.
+## Paso 4 — Crear una función de transformación
 
-**¿Qué información permite determinar si la solicitud fue atendida
-correctamente?**
+Reemplaza el bloque de transformación del paso anterior por una función:
 
-> Escriba aquí su respuesta.
+```python
+def transformar_estudiante(estudiante: dict) -> dict:
+    """Transforma una fila externa del CSV al formato del panel académico."""
+    return {
+        "id": estudiante["codigo"],
+        "nombre_completo": f'{estudiante["nombre"]} {estudiante["apellido"]}',
+        "programa": estudiante["programa"],
+        "semestre": int(estudiante["semestre"]),
+        "promedio": float(estudiante["promedio"]),
+        "estado": "Activo" if estudiante["activo"] == "true" else "Inactivo"
+    }
 
-------------------------------------------------------------------------
 
-# 4. Inspección del DOM
-
-Seleccione un elemento visible de la aplicación, por ejemplo:
-
--   un botón;
--   un título;
--   un enlace;
--   un campo de formulario;
--   un elemento del menú.
-
-Utilizando **Elementos / Elements**:
-
-1.  Localice el elemento dentro del DOM.
-2.  Identifique la etiqueta HTML utilizada.
-3.  Modifique temporalmente su contenido desde las herramientas de
-    desarrollo.
-4.  Observe el cambio producido en la interfaz.
-5.  Registre la evidencia.
-
-## Resultados
-
-**Elemento seleccionado:** `____________________________`
-
-**Etiqueta HTML:** `____________________________`
-
-**Contenido original:** `____________________________`
-
-**Modificación realizada:** `____________________________`
-
-El proceso observado puede representarse conceptualmente así:
-
-``` mermaid
-flowchart LR
-    H[HTML] --> B[Navegador]
-    B --> D[DOM]
-    J[JavaScript / DevTools] -->|consulta o modifica| D
-    D --> I[Interfaz]
+estudiante_transformado = transformar_estudiante(estudiantes_externos[0])
+print(estudiante_transformado)
 ```
 
-## Evidencia
+## Paso 5 — Transformar todos los registros
 
-Guarde la captura como:
+Agrega el siguiente bloque:
 
-``` text
-evidencias/dom.png
+```python
+estudiantes_transformados = []
+
+for estudiante in estudiantes_externos:
+    estudiante_transformado = transformar_estudiante(estudiante)
+    estudiantes_transformados.append(estudiante_transformado)
+
+print(estudiantes_transformados)
 ```
 
-Inclúyala aquí:
+Comprueba que la lista transformada contiene cinco estudiantes.
 
-``` markdown
-![Inspección y modificación del DOM](evidencias/dom.png)
+## Paso 6 — Serializar y guardar el JSON
+
+Agrega el import al inicio del archivo:
+
+```python
+import json
 ```
 
-### Análisis
+Luego agrega la función de serialización:
 
-**¿La modificación realizada sobre el DOM alteró permanentemente la
-aplicación o los archivos almacenados en el servidor? Justifique.**
+```python
+def serializar_estudiantes(ruta: Path, estudiantes: list[dict]) -> None:
+    """Serializa una lista de diccionarios Python a un archivo JSON UTF-8."""
+    ruta.parent.mkdir(exist_ok=True)
 
-> Escriba aquí su respuesta.
-
-------------------------------------------------------------------------
-
-# 5. Análisis de una interacción dinámica
-
-Regrese a **Network** y limpie las solicitudes registradas.
-
-Realice una acción dentro de la aplicación que pueda generar una
-interacción con el servidor, por ejemplo:
-
--   consultar;
--   buscar;
--   filtrar;
--   seleccionar una opción;
--   enviar información.
-
-Observe si aparece una nueva solicitud en Network.
-
-## Resultados
-
-  Elemento                       Resultado
-  ------------------------------ -----------
-  Acción realizada               
-  ¿Generó una nueva solicitud?   
-  URL solicitada                 
-  Método HTTP                    
-  Código de estado               
-  Tipo de respuesta              
-
-## Ciclo de interacción
-
-Utilice este esquema únicamente como referencia conceptual para
-interpretar lo observado:
-
-``` mermaid
-flowchart LR
-    U[Usuario] -->|interacción| J[JavaScript]
-    J -->|Solicitud HTTP| S[Servidor]
-    S -->|Respuesta HTTP| J
-    J -->|actualiza| D[DOM]
-    D --> I[Interfaz actualizada]
-    I --> U
+    with open(ruta, "w", encoding="utf-8") as archivo:
+        json.dump(estudiantes, archivo, indent=2, ensure_ascii=False)
 ```
 
-## Evidencia
+Al final del archivo, define la ruta de salida y llama la función:
 
-Guarde la captura como:
+```python
+RUTA_JSON = BASE_DIR / "salida" / "estudiantes_resumen.json"
 
-``` text
-evidencias/interaccion.png
+serializar_estudiantes(RUTA_JSON, estudiantes_transformados)
+print(f"Archivo JSON generado: {RUTA_JSON}")
 ```
 
-Inclúyala aquí:
+Abre el archivo `salida/estudiantes_resumen.json` y comprueba que:
 
-``` markdown
-![Interacción observada en Network](evidencias/interaccion.png)
+- Contiene un arreglo JSON válido.
+- Los nombres con tildes se visualizan correctamente.
+- Los valores de `semestre` y `promedio` no tienen comillas.
+- El campo `correo` no aparece.
+
+## Paso 7 — Deserializar el JSON generado
+
+Agrega esta función:
+
+```python
+def deserializar_estudiantes(ruta: Path) -> list[dict]:
+    """Deserializa un archivo JSON a una lista de diccionarios Python."""
+    with open(ruta, encoding="utf-8") as archivo:
+        return json.load(archivo)
 ```
 
-### Análisis
+Y úsala al final:
 
-**Explique la relación entre la acción realizada por el usuario y la
-solicitud observada.**
+```python
+estudiantes_recuperados = deserializar_estudiantes(RUTA_JSON)
 
-> Escriba aquí su respuesta.
-
-------------------------------------------------------------------------
-
-# 6. Reconstrucción del flujo observado
-
-A partir de **sus propias evidencias**, construya un diagrama Mermaid
-que represente el funcionamiento de la aplicación analizada.
-
-El diagrama deberá incluir, cuando corresponda:
-
-`Usuario` · `Navegador` · `JavaScript` · `Solicitud HTTP` · `Servidor` ·
-`Respuesta HTTP` · `DOM` · `Interfaz`
-
-> **No copie los diagramas anteriores.** Esta sección debe representar
-> el flujo que usted pudo comprobar durante la práctica.
-
-Reemplace el siguiente bloque con su diagrama:
-
-``` mermaid
-flowchart LR
-    A[Construya aquí] --> B[su flujo observado]
+print("\nDatos recuperados desde el JSON:")
+print(estudiantes_recuperados[0])
+print(f"Total recuperado: {len(estudiantes_recuperados)}")
 ```
 
-------------------------------------------------------------------------
+## Flujo final esperado
 
-# 7. Observado vs. inferido
+Tu programa debe completar este recorrido:
 
-Una herramienta de desarrollo permite observar una parte del sistema,
-pero no necesariamente todo lo que ocurre en el servidor.
-
-Clasifique sus hallazgos:
-
-## Elementos observados directamente
-
--   
--   
--   
-
-## Elementos inferidos
-
--   
--   
--   
-
-> No presente como observado un proceso interno que las herramientas del
-> navegador no permitan comprobar directamente.
-
-------------------------------------------------------------------------
-
-# 8. Conclusiones
-
-Redacte **tres conclusiones técnicas** derivadas de la práctica.
-
-1.  
-2.  
-3.  
-
-Las conclusiones deben explicar lo aprendido a partir de la evidencia y
-no limitarse a describir las actividades realizadas.
-
-------------------------------------------------------------------------
-
-# 9. Entrega
-
-La estructura final esperada es:
-
-``` text
-laboratorio-01/
-├── README.md
-└── evidencias/
-    ├── network.png
-    ├── request.png
-    ├── dom.png
-    └── interaccion.png
+```text
+1. Leer estudiantes.csv con csv.DictReader.
+2. Convertir cada fila del CSV a un diccionario Python.
+3. Transformar los registros al formato del panel académico.
+4. Serializar la lista transformada en estudiantes_resumen.json.
+5. Deserializar el JSON generado.
+6. Mostrar el primer estudiante recuperado y el total de registros.
 ```
 
-Antes de entregar, verifique:
+## Entregables
 
--   [ ] El `README.md` se visualiza correctamente en GitHub.
--   [ ] Las imágenes se muestran dentro del README.
--   [ ] Se documentaron al menos cinco recursos.
--   [ ] Se analizó una solicitud HTTP.
--   [ ] Se identificó y modificó un elemento del DOM.
--   [ ] Se analizó una interacción de la aplicación.
--   [ ] El diagrama final corresponde a lo observado.
--   [ ] Se diferenciaron elementos observados e inferidos.
--   [ ] Se redactaron tres conclusiones técnicas.
--   [ ] Se realizó `commit` y `push` al repositorio.
+Para completar la práctica debes incluir:
 
-------------------------------------------------------------------------
+- `datos/estudiantes.csv`.
+- `transformar_estudiantes.py` funcionando.
+- `salida/estudiantes_resumen.json` generado por tu programa.
+- Un Pull Request hacia la rama `main`.
 
-## Criterio de documentación
+## Entrega en GitHub
 
-> **Las capturas son evidencia, no la respuesta.**
+Cuando el programa funcione, ejecuta:
 
-Cada evidencia debe estar acompañada por una explicación que indique
-**qué se observó, qué significa y cómo se relaciona con el
-funcionamiento de la aplicación web**.
+```bash
+git status
+git checkout -b clase3-csv-json
+git add datos/estudiantes.csv transformar_estudiantes.py salida/estudiantes_resumen.json README.md
+git commit -m "feat: transforma estudiantes CSV a JSON"
+git push -u origin clase3-csv-json
+```
+
+Luego crea un Pull Request hacia `main`.
+
+Usa este título:
+
+```text
+Clase 3 - Transformación de CSV a JSON - Nombre Apellido
+```
+
+Usa esta descripción:
+
+```markdown
+- Leí el dataset estudiantes.csv.
+- Transformé sus registros a un formato propio.
+- Serialicé el resultado como JSON.
+- Deserialicé el JSON generado para comprobar la información.
+```
+
+## Reto opcional
+
+Si terminaste todos los pasos:
+
+- Agrega `correo_institucional` con el formato `<id>@universidad.edu.co`.
+- Agrega un campo `rendimiento`:
+  - `Superior` si promedio es mayor o igual a 4.5.
+  - `Alto` si promedio es mayor o igual a 4.0 y menor que 4.5.
+  - `Básico` si promedio es mayor o igual a 3.0 y menor que 4.0.
+  - `Bajo` si promedio es menor que 3.0.
+- Ordena los estudiantes por promedio de mayor a menor antes de guardar el JSON.

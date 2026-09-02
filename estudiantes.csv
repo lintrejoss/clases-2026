@@ -1,0 +1,6 @@
+codigo;nombre;apellido;programa;semestre;promedio;activo;correo
+20241001;Valentina;Gómez;Ingeniería de Sistemas;5;4.2;true;valentina.gomez@correo.edu.co
+20241002;Juan;Pérez;Ingeniería de Sistemas;3;3.8;true;juan.perez@correo.edu.co
+20241003;Mariana;López;Diseño Industrial;2;4.5;false;mariana.lopez@correo.edu.co
+20241004;Andrés;Rodríguez;Administración;6;3.1;true;andres.rodriguez@correo.edu.co
+20241005;Sofía;Martínez;Ingeniería de Sistemas;1;4.7;true;sofia.martinez@correo.edu.co

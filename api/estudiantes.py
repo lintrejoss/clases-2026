@@ -1,3 +1,4 @@
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from crud import estudiante as crud
@@ -6,7 +7,7 @@ from schemas.estudiante import EstudianteCreate, EstudianteResponse, EstudianteU
 
 router = APIRouter(prefix="/estudiantes", tags=["Estudiantes"])
 
-@router.get("", response_model=list[EstudianteResponse])
+@router.get("", response_model=List[EstudianteResponse])
 def listar_estudiantes(db: Session = Depends(get_db)):
     return crud.get_all(db)
 
@@ -35,4 +36,9 @@ def actualizar_estudiante(estudiante_id: int, data: EstudianteUpdate, db: Sessio
         raise HTTPException(status_code=404, detail="El estudiante no existe")
     return crud.update(db, estudiante, data)
 
-
+@router.delete("/{estudiante_id}", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_estudiante(estudiante_id: int, db: Session = Depends(get_db)):
+    estudiante = crud.get(db, estudiante_id)
+    if estudiante is None:
+        raise HTTPException(status_code=404, detail="El estudiante no existe")
+    crud.delete(db, estudiante)

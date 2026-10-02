@@ -1,4 +1,3 @@
-from crud.estudiante import create, delete, get, get_all, update
+from crud import estudiante, medicion
 
-__all__ = ["create", "delete", "get", "get_all", "update"]
-
+__all__ = ["estudiante", "medicion"]

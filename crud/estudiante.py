@@ -1,12 +1,13 @@
+from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from models.estudiante import Estudiante
 from schemas.estudiante import EstudianteCreate, EstudianteUpdate
 
-def get_all(db: Session) -> list[Estudiante]:
+def get_all(db: Session) -> List[Estudiante]:
     return list(db.scalars(select(Estudiante).order_by(Estudiante.id)).all())
 
-def get(db: Session, estudiante_id: int) -> Estudiante | None:
+def get(db: Session, estudiante_id: int) -> Optional[Estudiante]:
     return db.get(Estudiante, estudiante_id)
 
 def create(db: Session, data: EstudianteCreate) -> Estudiante:
@@ -26,4 +27,3 @@ def update(db: Session, estudiante: Estudiante, data: EstudianteUpdate) -> Estud
 def delete(db: Session, estudiante: Estudiante) -> None:
     db.delete(estudiante)
     db.commit()
-

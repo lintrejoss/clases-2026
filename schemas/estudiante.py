@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel, ConfigDict
 
 class EstudianteBase(BaseModel):
@@ -11,11 +12,11 @@ class EstudianteCreate(EstudianteBase):
     pass
 
 class EstudianteUpdate(BaseModel):
-    nombre: str | None = None
-    apellido: str | None = None
-    correo: str | None = None
-    programa: str | None = None
-    grupo: str | None = None
+    nombre: Optional[str] = None
+    apellido: Optional[str] = None
+    correo: Optional[str] = None
+    programa: Optional[str] = None
+    grupo: Optional[str] = None
 
 class EstudianteResponse(EstudianteBase):
     model_config = ConfigDict(from_attributes=True)

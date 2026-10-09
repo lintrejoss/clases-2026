@@ -1,571 +1,301 @@
-# Guía de Trabajo Práctico Experimental — Taller 2
-
-**API para adquisición, validación y consulta de datos IoT con FastAPI, MQTT y PostgreSQL**
+# Taller 2 — API para Adquisición, Validación y Consulta de Datos IoT con FastAPI, MQTT y PostgreSQL
 
 ---
 
-| Campo | Valor |
-|---|---|
-| **Código de guía** | 002 |
-| **Laboratorio** | Laboratorio DevOps |
-| **Tiempo de trabajo práctico estimado** | 4 días |
-| **Asignatura** | Aplicaciones y Servicios Web |
-| **Programa académico** | Tecnología en Desarrollo de Software |
-| **Elaborado por** | Juan Carlos Morales Guerra |
-| **Revisado por** | Juan Carlos Morales Guerra |
-| **Versión** | 001 |
-| **Fecha** | 07-10-2026 |
+## 1. Información General
+
+- **Proyecto:** API para Adquisición, Validación y Consulta de Telemetría IoT
+- **Asignatura:** Aplicaciones y Servicios Web
+- **Programa:** Tecnología en Desarrollo de Software
+- **Docente:** Juan Carlos Morales Guerra
+- **Fecha de Entrega:** Octubre 2026
+- **Sensor Asignado:** `AQ-004` (Calidad de aire en aulas)
+- **Ubicación:** Edificio B - aula 101
+- **Categoría:** `AIRE`
+- **Tópico MQTT Utilizado:** `iot/sensors/AQ-004/data`
+- **Broker MQTT:** `emqx.coriotlab.co:1883`
 
 ---
 
-## 1. Competencias, Contenido Temático e Indicador de Logro
+## 2. Descripción del Sistema
 
-| Competencias | Contenido Temático | Indicador de Logro |
-|---|---|---|
-| Diseñar e implementar una API para recibir, validar, almacenar y consultar datos provenientes de un sensor IoT, aplicando separación de responsabilidades y persistencia en PostgreSQL. | FastAPI. Pydantic. SQLAlchemy ORM. PostgreSQL. CRUD. Claves primarias y foráneas. Endpoints HTTP. Códigos de respuesta HTTP. MQTT. Validación de payloads. Consultas por identificador, magnitud y rango de fecha. Git y GitHub. | El estudiante integra un consumidor MQTT con una API desarrollada en FastAPI, valida los datos recibidos, consulta la configuración del sensor mediante ORM, almacena las mediciones válidas en PostgreSQL y expone endpoints de consulta con manejo adecuado de errores. |
+### Problema Resuelto
 
----
+En entornos de monitoreo IoT, los sensores transmiten continuamente mediciones ambientales a través de redes de mensajería asíncrona. Sin embargo, los dispositivos pueden emitir datos corruptos, payloads con tipos incorrectos, magnitudes no calibradas, unidades erróneas o valores fuera de rango físico.
 
-## 2. Fundamento Teórico
+El sistema desarrollado resuelve este desafío implementando una arquitectura de backend desacoplada y robusta que:
+1. **Consume telemetría en tiempo real** mediante el protocolo MQTT desde el tópico asignado.
+2. **Valida la estructura y tipado estricto** en primera instancia con modelos Pydantic.
+3. **Verifica las reglas de negocio e integridad referencial** contra la base de datos relacional PostgreSQL mediante SQLAlchemy ORM (existencia y estado activo del sensor, pertenencia de magnitudes, correspondencia de unidades y rangos numéricos válidos).
+4. **Garantiza la atomicidad**: Si un payload contiene múltiples magnitudes y una sola de ellas falla, todo el mensaje es rechazado sin almacenar datos parciales.
+5. **Persiste mediciones válidas** conservando el timestamp en formato UTC.
+6. **Expone una API REST con FastAPI** para consultar información de sensores, catálogo de magnitudes, histórico de mediciones filtradas por rango temporal o magnitud, y la última medición registrada, convirtiendo automáticamente los timestamps a la hora local de Colombia (`America/Bogota`, UTC-5).
 
-Una **API REST** permite que aplicaciones diferentes intercambien información mediante solicitudes HTTP. En este taller, FastAPI se utilizará para exponer endpoints que permitan consultar sensores, magnitudes y mediciones almacenadas.
-
-**FastAPI** es un framework de Python orientado al desarrollo de APIs. Permite definir rutas, parámetros, respuestas HTTP y modelos de validación. También genera documentación automática mediante OpenAPI.
-
-**Pydantic** permite definir la estructura esperada de los datos y validar campos obligatorios, tipos de datos y formatos. En esta práctica se utilizará para validar el contenido de los mensajes recibidos y los datos utilizados por la API.
-
-**SQLAlchemy ORM** permite representar tablas de PostgreSQL mediante clases de Python. El ORM se utilizará para consultar los sensores y sus magnitudes, trabajar con claves primarias y foráneas y almacenar las mediciones válidas.
-
-**CRUD** corresponde a las operaciones Create, Read, Update y Delete. La existencia de una capa `crud/` no implica que todas las entidades deban implementar las cuatro operaciones. Cada módulo deberá implementar únicamente las operaciones autorizadas para esa entidad.
-
-### MQTT
-
-**MQTT (Message Queuing Telemetry Transport)** es un protocolo de mensajería ligero utilizado frecuentemente en sistemas IoT. Su funcionamiento se basa en un modelo de publicación y suscripción.
-
-Los elementos principales son:
-
-- **Publicador:** dispositivo o aplicación que envía mensajes.
-- **Broker:** servicio que recibe los mensajes y los distribuye.
-- **Suscriptor:** aplicación que recibe los mensajes de uno o varios tópicos.
-- **Tópico:** ruta utilizada para organizar los mensajes.
-
-En esta práctica, el sensor publica mediciones en un tópico MQTT y la aplicación desarrollada por el estudiante actúa como suscriptor.
+### Arquitectura del Sistema
 
 ```mermaid
-flowchart LR
-    A[Sensor] -->|Publica medición| B[Broker MQTT]
-    B -->|Entrega mensaje| C[Aplicación del estudiante]
-    C --> D[Pydantic]
-    D --> E[SQLAlchemy ORM]
-    E --> F[(PostgreSQL)]
-    G[Cliente HTTP] --> H[FastAPI]
-    H --> E
+flowchart TD
+    subgraph IoT_Layer["Capa IoT / Broker"]
+        S[Sensor AQ-004] -->|Publica JSON| B[Broker MQTT: emqx.coriotlab.co]
+    end
+
+    subgraph Backend_App["Aplicación Backend (Python)"]
+        B -->|Suscripción| MC[Consumidor MQTT client.py]
+        MC -->|Paso 1: Validación Estructural| PY[Pydantic MQTTPayloadSchema]
+        PY -->|Paso 2: Validación de Negocio| ORM[SQLAlchemy ORM & Lógica de Negocio]
+        
+        ORM -->|Rechazado| LOG[Registro de Log / Descarte]
+        ORM -->|Válido: Inserción Atómica| DB[(PostgreSQL appdb)]
+
+        CLI[Cliente Web / OpenAPI Swagger] -->|Solicitudes HTTP| FA[FastAPI Endpoints]
+        FA -->|Consultas y Filtros| DB
+        FA -->|Conversión a Hora Colombia| CLI
+    end
 ```
 
----
+### Magnitudes y Unidades Recibidas (Sensor AQ-004)
 
-## 3. Objetivos
+El sensor `AQ-004` (ID 31 en la base de datos) monitorea tres variables de calidad de aire interior:
 
-### Objetivo General
+| Magnitud | Unidad | Rango Mínimo | Rango Máximo | Descripción |
+|---|---|---|---|---|
+| `co2` | `ppm` | 300.0000 | 5000.0000 | Concentración de Dióxido de Carbono |
+| `temperature` | `C` | -10.0000 | 60.0000 | Temperatura ambiental |
+| `humidity` | `%` | 0.0000 | 100.0000 | Humedad relativa |
 
-Desarrollar una aplicación backend que reciba datos IoT mediante MQTT, valide la información con Pydantic, consulte la configuración del sensor mediante SQLAlchemy ORM, almacene las mediciones válidas en PostgreSQL y permita consultarlas mediante endpoints desarrollados con FastAPI.
-
-### Objetivos Específicos
-
-- Consumir datos desde un tópico MQTT asignado.
-- Interpretar el modelo de datos suministrado.
-- Implementar modelos SQLAlchemy ORM.
-- Implementar esquemas Pydantic.
-- Validar estructura, tipos de datos y timestamp.
-- Validar sensor, magnitud, unidad y rango mediante ORM y lógica de negocio.
-- Almacenar mediciones válidas en PostgreSQL.
-- Implementar consultas por ID, magnitud, histórico y rango de fechas.
-- Manejar respuestas y errores HTTP.
-- Organizar el código mediante separación de responsabilidades.
-- Documentar y evidenciar el funcionamiento en GitHub.
-
----
-
-## 4. Recursos Requeridos
-
-### Equipos
-
-- Computador personal o estación de trabajo por estudiante.
-
-### Herramientas de Software
-
-- Python 3.10 o superior.
-- FastAPI.
-- PostgreSQL.
-- SQLAlchemy.
-- Pydantic.
-- Uvicorn.
-- Cliente MQTT para Python.
-- Git.
-- Cuenta en GitHub.
-- Editor de código.
-
-### Infraestructura suministrada
-
-**Broker MQTT**
-
-```text
-emqx.coriotlab.co
-```
-
-La estructura general de los tópicos será:
-
-```text
-iot/sensors/{sensor_id}/data
-```
-
-Ejemplo:
-
-```text
-iot/sensors/TEST-001/data
-```
-
-El tópico real será suministrado por el docente.
-
-**Base de datos PostgreSQL**
-
-El host, las credenciales y el nombre de la base serán suministrados por el docente.
-
-### Recursos disponibles en el repositorio
-
-El repositorio del taller contiene:
-
-- `data-model.md`: descripción de tablas, campos, tipos de datos, claves y relaciones.
-- `mqtt_example.py` : ejemplo para conectarse al broker, suscribirse a un tópico y visualizar mensajes MQTT.
-
-El script de ejemplo es una guía de consumo MQTT se debe cambiar el topico por el asignado para cada grupo.
-
-### Asignación de sensores
-
-Cada grupo recibirá un sensor asignado por el docente.
-
-La asignación podrá realizarse hasta:
-
-**viernes 9 de octubre de 2026**
-
-Después de esta fecha no se asignarán sensores.
-
-El identificador entregado corresponde al campo `codigo` de la tabla `sensores`.
-
----
-
-## 5. Aspectos de Seguridad
-
-La práctica corresponde a una actividad de desarrollo de software y no implica riesgos físicos o químicos asociados al uso de equipos experimentales.
-
-Se deben tener en cuenta las siguientes consideraciones:
-
-- No incluir credenciales reales en el código fuente.
-- No subir archivos `.env` al repositorio.
-- Utilizar variables de entorno para credenciales y parámetros de conexión.
-- Mantener `.env` dentro del `.gitignore`.
-- Realizar copias de seguridad mediante commits frecuentes.
-- No modificar datos de otros grupos.
-- Utilizar únicamente el sensor y tópico asignados.
-
----
-
-## 6. Procedimiento o Metodología para el Desarrollo
-
-La práctica se desarrollará en equipos de trabajo de maximo dos personas, no se permiten equipos de tres si excepción.
-
-### Actividad 1: Configuración Inicial del Proyecto
-
-1. Crear el branch taller-2 en el repositorio en GitHub del curso.
-2. Crear y activar un entorno virtual.
-3. Instalar las dependencias.
-4. Crear `requirements.txt`.
-5. Crear `.gitignore`.
-6. Configurar las variables de entorno necesarias.
-7. Verificar la conexión con PostgreSQL.
-8. Ejecutar el script MQTT de ejemplo y comprobar la recepción de mensajes del sensor asignado.
-
----
-
-### Actividad 2: Comprensión del Problema y del Modelo de Datos
-
-#### A. Planteamiento del Problema
-
-Una infraestructura IoT dispone de sensores destinados al monitoreo de variables relacionadas con calidad del aire, calidad del agua, gases y condiciones ambientales.
-
-Cada sensor puede medir una o varias magnitudes y publica periódicamente sus datos mediante el protocolo UDP MQTT.
-
-La aplicación desarrollada debe:
-
-1. conectarse al broker MQTT;
-2. suscribirse al tópico del sensor asignado;
-3. recibir y decodificar los mensajes;
-4. validar la estructura y los tipos de datos;
-5. consultar la configuración almacenada en PostgreSQL;
-6. validar sensor, magnitud, unidad y rango;
-7. almacenar únicamente mensajes válidos;
-8. exponer endpoints de consulta mediante FastAPI.
-
-#### B. Payload
-
-Los sensores publican mensajes JSON.
-
-Ejemplo:
+### Payload Real Recibido del Sensor
 
 ```json
 {
-  "sensor_id": "TEST-001",
-  "timestamp": "2026-10-07T16:25:30Z",
+  "sensor_id": "AQ-004",
+  "timestamp": "2026-10-09T22:54:40Z",
   "measurements": {
+    "co2": {
+      "value": 856.08,
+      "unit": "ppm"
+    },
     "temperature": {
-      "value": 24.6,
+      "value": 28.41,
       "unit": "C"
+    },
+    "humidity": {
+      "value": 47.89,
+      "unit": "%"
     }
   }
 }
 ```
 
-El campo `sensor_id` recibido mediante MQTT corresponde al campo `codigo` de la tabla `sensores`; no corresponde a la clave primaria numérica `id` en la base de datos.
-
-Cada grupo deberá revisar el payload real recibido y documentar:
-
-- magnitudes;
-- unidades;
-- tipos de datos;
-- estructura;
-- timestamp.
-
-#### C. Modelo de Datos
-
-El modelo de datos se encuentra en:
-
-```text
-data-model.md
-```
-
-Los estudiantes deberán interpretarlo y construir los modelos ORM correspondientes.
-
-El catálogo de sensores y magnitudes ya existe en la base de datos y es suministrado por el docente.
-
-La aplicación puede consultar este catálogo, pero no crear, modificar ni eliminar sensores o magnitudes.
-
 ---
 
-### Actividad 3: Implementación de Modelos, Schemas y CRUD
+## 3. Configuración del Entorno
 
-La solución deberá separar responsabilidades.
+### Requisitos Previos
 
-Estructura mínima:
+- Python 3.10 o superior (compatible con Python 3.9+).
+- Acceso a internet para conectar con el broker MQTT y la base de datos PostgreSQL.
 
-```text
-app/
-├── main.py
-├── schemas/
-│   ├── sensor.py
-│   ├── sensor_magnitud.py
-│   └── medicion.py
-├── models/
-│   ├── sensor.py
-│   ├── sensor_magnitud.py
-│   └── medicion.py
-├── crud/
-│   ├── sensor.py
-│   ├── sensor_magnitud.py
-│   └── medicion.py
-├── api/
-│   ├── sensor.py
-│   ├── sensor_magnitud.py
-│   └── medicion.py
-├── mqtt/
-│   └── client.py
-└── database/
-    └── connection.py
+### Instalación Paso a Paso
+
+1. **Crear y activar el entorno virtual:**
+```bash
+python3 -m venv venv
+source venv/bin/activate   # En Linux/macOS
+# venv\Scripts\activate    # En Windows
 ```
 
-Cada tabla debe tener su archivo correspondiente en:
+2. **Instalar dependencias:**
+```bash
+pip install -r requirements.txt
+```
 
-- `schemas/`
-- `models/`
-- `crud/`
-- `api/`
+3. **Configurar variables de entorno:**
+Copiar la plantilla `.env.example` y crear el archivo local `.env`:
+```bash
+cp .env.example .env
+```
 
-#### Validaciones con Pydantic
+Contenido representativo de `.env` (sin datos sensibles expuestos en el repositorio):
+```ini
+# PostgreSQL
+POSTGRES_HOST=190.248.28.132
+POSTGRES_PORT=3002
+POSTGRES_DB=appdb
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=********
 
-Pydantic deberá verificar:
+# MQTT
+MQTT_BROKER=emqx.coriotlab.co
+MQTT_PORT=1883
+MQTT_TOPIC=iot/sensors/AQ-004/data
+MQTT_USERNAME=
+MQTT_PASSWORD=
+MQTT_KEEPALIVE=60
+SENSOR_CODE=AQ-004
+MQTT_AUTO_START=false
+```
 
-- estructura del mensaje;
-- campos obligatorios;
-- tipos de datos;
-- formato del timestamp.
+4. **Ejecutar la API REST con FastAPI:**
+```bash
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+Documentación interactiva disponible en: `http://localhost:8000/docs`
 
-#### Validaciones con ORM y lógica de negocio
-
-Después de la validación de estructura, la aplicación deberá verificar:
-
-- existencia del sensor;
-- estado del sensor;
-- relación entre sensor y magnitud;
-- correspondencia de la unidad;
-- consistencia de las claves foráneas.
-
-Si un payload contiene varias magnitudes, **solo se almacenará si todas son válidas**.
-
-Cada magnitud contenida en un payload válido debe almacenarse como un registro independiente en la tabla `mediciones`.
-
-Todas las mediciones generadas a partir del mismo payload deben conservar el mismo `timestamp_utc`.
-
----
-
-### Actividad 4: Integración MQTT y Almacenamiento
-
-La aplicación deberá consumir los mensajes del tópico asignado.
-
-El servicio MQTT puede publicar mensajes válidos e inválidos de forma intencional. La aplicación debe procesar ambos casos y almacenar únicamente los mensajes que superen todas las validaciones.
-
-El timestamp recibido desde MQTT se encuentra en UTC.
-
-La aplicación deberá:
-
-1. validar el timestamp;
-2. almacenarlo conservando la referencia UTC;
-3. convertirlo en las respuestas GET a hora local de Colombia;
-4. presentar la fecha y hora en un formato legible y consistente.
-
-Cada grupo deberá recolectar datos del sensor asignado durante al menos:
-
-```text
-20 minutos
+5. **Ejecutar el Consumidor MQTT:**
+```bash
+python mqtt/client.py
 ```
 
 ---
 
-### Actividad 5: Desarrollo de Endpoints
+## 4. Base de Datos y Modelo Relacional
 
-La API debe ofrecer como mínimo operaciones equivalentes a:
+La persistencia se realiza en PostgreSQL (`appdb`), esquema `public`, utilizando un pool de conexiones administrado por SQLAlchemy.
 
-```text
-GET /sensores
-GET /sensores/{id}
-GET /sensores/por-codigo/{codigo}
+### Tablas y Relaciones
 
-GET /sensores/{id}/magnitudes
-GET /sensor-magnitudes/{id}
+```mermaid
+erDiagram
+    SENSORES ||--o{ SENSOR_MAGNITUDES : "1:N (sensor_id)"
+    SENSOR_MAGNITUDES ||--o{ MEDICIONES : "1:N (sensor_magnitud_id)"
 
-GET /mediciones/{id}
-GET /sensores/{id}/mediciones
-GET /sensores/{id}/ultima-medicion
+    SENSORES {
+        int id PK
+        string codigo UK
+        string nombre
+        string categoria
+        string ubicacion
+        boolean activo
+        timestamptz fecha_registro
+    }
+
+    SENSOR_MAGNITUDES {
+        int id PK
+        int sensor_id FK
+        string magnitud
+        string unidad
+        numeric valor_minimo
+        numeric valor_maximo
+    }
+
+    MEDICIONES {
+        bigint id PK
+        int sensor_magnitud_id FK
+        numeric valor
+        timestamptz timestamp_utc
+        timestamptz fecha_recepcion
+    }
 ```
 
-La consulta histórica debe permitir combinar filtros.
+### Integridad Referencial
 
-Ejemplos:
+- `sensores` $\rightarrow$ `sensor_magnitudes`: Clave foránea `sensor_id` con `ON UPDATE CASCADE ON DELETE RESTRICT`.
+- `sensor_magnitudes` $\rightarrow$ `mediciones`: Clave foránea `sensor_magnitud_id` con `ON UPDATE CASCADE ON DELETE RESTRICT`.
+- Los datos de configuración de sensores y magnitudes son de solo lectura para la aplicación; la aplicación solo realiza operaciones `INSERT` sobre `mediciones`.
+
+---
+
+## 5. Organización del Código
+
+El proyecto adopta el principio de separación de responsabilidades:
 
 ```text
-GET /sensores/{id}/mediciones?desde=...&hasta=...
-
-GET /sensores/{id}/mediciones?magnitud=temperature
-
-GET /sensores/{id}/mediciones?limit=10
-
-GET /sensores/{id}/mediciones?magnitud=temperature&desde=...&hasta=...&limit=10
+apps_services_2/
+├── main.py                  # Punto de entrada de FastAPI, lifespan y registro de routers
+├── database/
+│   ├── __init__.py
+│   └── connection.py        # Configuración del Engine, SessionLocal y get_db()
+├── models/                  # Modelos ORM (SQLAlchemy)
+│   ├── __init__.py
+│   ├── sensor.py            # Mapeo de la tabla sensores
+│   ├── sensor_magnitud.py   # Mapeo de la tabla sensor_magnitudes
+│   └── medicion.py          # Mapeo de la tabla mediciones
+├── schemas/                 # Esquemas de validación y serialización (Pydantic)
+│   ├── __init__.py
+│   ├── sensor.py            # DTOs para Sensores
+│   ├── sensor_magnitud.py   # DTOs para Magnitudes
+│   └── medicion.py          # DTOs para Mediciones y validación de Payloads MQTT
+├── crud/                    # Operaciones de persistencia y consultas a BD
+│   ├── __init__.py
+│   ├── sensor.py            # Consultas de sensores por ID y código
+│   ├── sensor_magnitud.py   # Consultas de magnitudes por sensor
+│   └── medicion.py          # Consultas históricas, última medición e inserción masiva
+├── api/                     # Capa de presentación y endpoints HTTP (FastAPI)
+│   ├── __init__.py
+│   ├── sensor.py            # Endpoints /sensores
+│   ├── sensor_magnitud.py   # Endpoints /sensor-magnitudes
+│   └── medicion.py          # Endpoints /mediciones
+├── mqtt/                    # Integración y lógica de adquisición MQTT
+│   ├── __init__.py
+│   └── client.py            # Suscripción, validación multinivel y persistencia
+├── tests/
+│   └── test_taller2.py      # Suite de pruebas automatizadas (Pytest)
+├── evidencias/
+│   └── informe_evidencias.md # Registro detallado de las 18 pruebas
+├── data-model.md            # Especificación técnica del modelo de datos
+├── requirements.txt         # Dependencias del proyecto
+└── .env.example             # Plantilla de variables de entorno
 ```
 
-El parámetro `limit` permite consultar las últimas N mediciones.
+---
+
+## 6. Endpoints Implementados
+
+| Método | Ruta | Descripción | Parámetros / Filtros | Códigos HTTP |
+|---|---|---|---|---|
+| `GET` | `/` | Información general de la API | Ninguno | `200` |
+| `GET` | `/health/db` | Verificación de conexión con PostgreSQL | Ninguno | `200` |
+| `GET` | `/sensores` | Listar todos los sensores registrados | `skip`, `limit` | `200` |
+| `GET` | `/sensores/{id}` | Consultar un sensor por ID | `id` (int) | `200`, `404`, `422` |
+| `GET` | `/sensores/por-codigo/{codigo}` | Consultar sensor por código único (ej. `AQ-004`) | `codigo` (str) | `200`, `404` |
+| `GET` | `/sensores/{id}/magnitudes` | Listar magnitudes configuradas para un sensor | `id` (int) | `200`, `404`, `422` |
+| `GET` | `/sensor-magnitudes/{id}` | Consultar detalle de configuración de una magnitud | `id` (int) | `200`, `404`, `422` |
+| `GET` | `/mediciones/{id}` | Consultar una medición por su identificador | `id` (int) | `200`, `404`, `422` |
+| `GET` | `/sensores/{id}/mediciones` | Consulta histórica de mediciones con filtros | `id`, `desde`, `hasta`, `magnitud`, `limit` | `200`, `400`, `404`, `422` |
+| `GET` | `/sensores/{id}/ultima-medicion` | Consultar la medición más reciente de un sensor | `id`, `magnitud` | `200`, `404`, `422` |
 
 ---
 
-### Actividad 6: Pruebas y Evidencias
+## 7. Evidencias de Funcionamiento
 
-Los códigos HTTP se evaluarán únicamente en las solicitudes realizadas a los endpoints FastAPI.
+Se ejecutó la suite completa de pruebas obligatorias (`tests/test_taller2.py` y `generar_evidencias.py`), validando el 100% de los requisitos del taller.
 
-Los errores detectados durante el procesamiento MQTT se deberán manejar internamente y evidenciar mediante registros de ejecución y comprobación de que los datos inválidos no fueron almacenados.
+| # | Prueba Obligatoria | Entrada | Código HTTP | Resultado y Estado | Archivo y Función |
+|---|---|---|---|---|---|
+| **1** | **Recepción MQTT** | Payload JSON recibido en `iot/sensors/AQ-004/data` | N/A (MQTT) | Decodificado y validado estructuralmente | `mqtt/client.py` $\rightarrow$ `on_message()`, `validar_y_procesar_payload()` |
+| **2** | **Medición válida** | Mediciones `co2`, `temperature`, `humidity` válidas | N/A (PostgreSQL) | Almacenado exitosamente en `mediciones` | `mqtt/client.py`, `crud/medicion.py` $\rightarrow$ `create_mediciones_bulk()` |
+| **3** | **Sensor inexistente** | Payload con `sensor_id`: `SENSOR-INEXISTENTE-999` | N/A (MQTT) | Rechazado sin almacenar | `mqtt/client.py` $\rightarrow$ `validar_y_procesar_payload()` |
+| **4** | **Unidad incorrecta** | Temperatura con unidad `'F'` en vez de `'C'` | N/A (MQTT) | Rechazado sin almacenar | `mqtt/client.py` $\rightarrow$ `validar_y_procesar_payload()` |
+| **5** | **Tipo de dato incorrecto** | `value`: `"NO_NUMERICO"` | N/A (Pydantic) | Rechazado por validación de tipo | `schemas/medicion.py` $\rightarrow$ `MQTTMeasurementDetail` |
+| **6** | **Magnitud incorrecta** | Magnitud `radiacion_gamma` (no asociada a AQ-004) | N/A (MQTT) | Rechazado sin almacenar | `mqtt/client.py` $\rightarrow$ `validar_y_procesar_payload()` |
+| **7** | **Timestamp inválido** | `timestamp`: `"FECHA_INVALIDA_2026"` | N/A (Pydantic) | Rechazado por validación ISO 8601 | `schemas/medicion.py` $\rightarrow$ `MQTTPayloadSchema` |
+| **8** | **Consulta por ID existente** | `GET /sensores/31` | `200 OK` | Retorna datos del sensor `AQ-004` | `api/sensor.py` $\rightarrow$ `consultar_sensor_por_id()` |
+| **9** | **Consulta por ID inexistente** | `GET /sensores/999999` | `404 Not Found` | Retorna mensaje: Sensor no encontrado | `api/sensor.py` $\rightarrow$ `consultar_sensor_por_id()` |
+| **10** | **Consulta histórica** | `GET /sensores/31/mediciones?limit=5` | `200 OK` | Histórico con conversión horaria local (UTC-5) | `api/medicion.py` $\rightarrow$ `consultar_historico_mediciones()` |
+| **11** | **Consulta por rango de fechas** | `GET /sensores/31/mediciones?desde=...&hasta=...` | `200 OK` | Registros filtrados por rango temporal | `api/medicion.py`, `crud/medicion.py` $\rightarrow$ `get_mediciones_by_sensor()` |
+| **12** | **Rango `desde > hasta`** | `GET /sensores/31/mediciones?desde=2026-10-10...&hasta=2026-10-01...` | `400 Bad Request` | Retorna error: `desde` no puede ser mayor que `hasta` | `api/medicion.py` $\rightarrow$ `consultar_historico_mediciones()` |
+| **13** | **Validación HTTP incorrecta** | `GET /sensores/codigo-no-entero` | `422 Unprocessable Entity` | Validación automática de tipos de ruta | FastAPI / Pydantic routing |
+| **14** | **Última medición** | `GET /sensores/31/ultima-medicion` | `200 OK` | Retorna la medición más reciente capturada | `api/medicion.py` $\rightarrow$ `consultar_ultima_medicion()` |
+| **15** | **Últimas N mediciones** | `GET /sensores/31/mediciones?limit=3` | `200 OK` | Retorna exactamente 3 registros | `api/medicion.py` $\rightarrow$ `consultar_historico_mediciones()` |
+| **16** | **Filtro por magnitud** | `GET /sensores/31/mediciones?magnitud=co2&limit=3` | `200 OK` | Retorna exclusivamente registros de `co2` | `api/medicion.py` $\rightarrow$ `consultar_historico_mediciones()` |
+| **17** | **Claves foráneas** | Verificación de relaciones en `models/` | N/A (ORM/BD) | Integridad referencial 1:N garantizada | `models/sensor.py`, `models/sensor_magnitud.py`, `models/medicion.py` |
+| **18** | **Separación de responsabilidades** | Inspección de arquitectura modular | N/A (Diseño) | Organización desacoplada en capas | `database/`, `models/`, `schemas/`, `crud/`, `api/`, `mqtt/` |
 
-Se deberán demostrar los siguientes códigos HTTP:
-
-```text
-200
-400
-404
-422
-```
-
-#### Evidencias obligatorias
-
-| # | Prueba | Evidencia esperada |
-|---|---|---|
-| 1 | Recepción MQTT | Mensaje recibido desde el tópico asignado |
-| 2 | Medición válida | Registro almacenado en PostgreSQL |
-| 3 | Sensor inexistente | Mensaje rechazado |
-| 4 | Unidad incorrecta | Mensaje rechazado |
-| 5 | Tipo de dato incorrecto | Mensaje rechazado |
-| 6 | Magnitud incorrecta | Mensaje rechazado |
-| 7 | Timestamp inválido | Mensaje rechazado |
-| 8 | Consulta por ID existente | Respuesta correcta |
-| 9 | Consulta por ID inexistente | `404` |
-| 10 | Consulta histórica | Datos históricos retornados |
-| 11 | Consulta por rango de fechas | Datos filtrados |
-| 12 | Rango `desde > hasta` | `400` |
-| 13 | Validación HTTP incorrecta | `422` |
-| 14 | Última medición | Registro más reciente |
-| 15 | Últimas N mediciones | Uso correcto de `limit` |
-| 16 | Filtro por magnitud | Resultado filtrado |
-| 17 | Claves foráneas | Relación implementada correctamente |
-| 18 | Separación de responsabilidades | Organización correcta del código |
-
-Para cada prueba se deberá indicar:
-
-- datos de entrada;
-- resultado obtenido;
-- código HTTP cuando aplique;
-- registro almacenado o rechazado;
-- archivo y función donde se implementa la lógica relacionada;
-- breve explicación.
-
-No es necesario incluir capturas del código fuente.
+> El detalle extendido de cada prueba con sus payloads de entrada y respuestas JSON completas se encuentra en [`evidencias/informe_evidencias.md`](file:///Users/lin/clase%20miercoles/apps_services_2/evidencias/informe_evidencias.md).
 
 ---
 
-### Actividad 7: Trabajo Colaborativo
+## 8. Control de Versiones
 
-El equipo deberá evidenciar el trabajo colaborativo mediante Git y GitHub.
-
-Requisitos mínimos:
-
-- Cada integrante debe tener commits identificables.
-- Los mensajes de commit deben ser descriptivos.
-- El historial debe evidenciar participación del equipo.
-- El README debe indicar el aporte de cada integrante.
+- **Repositorio:** [https://github.com/lintrejoss/clases-2026.git](https://github.com/lintrejoss/clases-2026.git)
+- **Rama de Trabajo:** `taller-2`
+- **Estrategia de Commits:** Commits incrementales y descriptivos que documentan la configuración del entorno, modelos ORM, esquemas Pydantic, operaciones CRUD, endpoints de FastAPI, consumidor MQTT y suite de pruebas.
 
 ---
 
-## 7. Resultado Esperado del Taller
+## 9. Conclusiones
 
-Al finalizar el taller, cada equipo deberá disponer de una aplicación funcional que:
-
-- consuma datos desde MQTT;
-- valide mensajes mediante Pydantic;
-- consulte sensores y magnitudes mediante ORM;
-- valide unidades y rangos;
-- almacene únicamente mediciones válidas;
-- conserve las relaciones mediante claves foráneas;
-- exponga endpoints con FastAPI;
-- permita consultas históricas;
-- permita filtrar por magnitud y fechas;
-- permita consultar la última medición y las últimas N;
-- convierta el timestamp UTC a hora local de Colombia en los GET;
-- maneje correctamente errores HTTP;
-- mantenga una estructura modular del código.
-
-Toda la solución y sus evidencias deberán quedar disponibles en el repositorio GitHub del equipo.
-
----
-
-## 8. Parámetros para Elaboración del Informe
-
-El informe del taller deberá presentarse en formato **README.md** dentro del repositorio del proyecto.
-
-No se aceptarán informes externos en Word o PDF.
-
-### Contenido del README.md
-
-#### 1. Información General
-
-- Nombre del proyecto.
-- Integrantes.
-- Asignatura.
-- Fecha.
-- Sensor asignado.
-- Tópico MQTT utilizado.
-
-#### 2. Descripción del Sistema
-
-- Problema resuelto.
-- Arquitectura implementada.
-- Magnitudes y unidades recibidas.
-- Payload real del sensor.
-
-#### 3. Configuración del Entorno
-
-- Creación del entorno virtual.
-- Instalación de dependencias.
-- Uso de `requirements.txt`.
-- Variables de entorno requeridas, sin valores sensibles.
-
-#### 4. Base de Datos
-
-- Descripción de la conexión.
-- Tablas utilizadas.
-- Relaciones implementadas.
-- Correspondencia con `data-model.md`.
-
-#### 5. Organización del Código
-
-Describir la función de:
-
-- `schemas/`
-- `models/`
-- `crud/`
-- `api/`
-- `mqtt/`
-- `database/`
-
-#### 6. Endpoints Implementados
-
-Tabla con:
-
-| Método | Ruta | Descripción |
-|---|---|---|
-
-#### 7. Evidencias de Funcionamiento
-
-Crear dentro del repositorio una carpeta:
-
-```text
-evidencias/
-```
-
-Las evidencias deberán cubrir las pruebas obligatorias de la Actividad 6.
-
-Para cada evidencia se debe indicar el archivo y la función relacionados con la implementación.
-
-#### 8. Control de Versiones
-
-- Enlace al repositorio.
-- Evidencia de commits.
-- Aporte de cada integrante.
-
-#### 9. Conclusiones
-
-- Principales aprendizajes.
-- Dificultades encontradas.
-- Soluciones aplicadas.
-
-### Requisitos del Repositorio
-
-El repositorio debe:
-
-- contener el código fuente completo;
-- incluir `README.md`;
-- incluir `requirements.txt`;
-- incluir `.gitignore`;
-- incluir `data-model.md`;
-- contener las evidencias;
-- no incluir `.env` con credenciales reales.
-
----
-
-## 9. Disposición de Residuos
-
-La actividad descrita en esta guía no genera residuos físicos o químicos. En consecuencia, no se requiere un procedimiento específico de disposición de residuos.
-
----
-
-## 10. Bibliografía
-
-- FastAPI. *FastAPI Documentation*. https://fastapi.tiangolo.com
-- Pydantic. *Pydantic Documentation*. https://docs.pydantic.dev
-- SQLAlchemy. *SQLAlchemy Documentation*. https://docs.sqlalchemy.org
-- PostgreSQL Global Development Group. *PostgreSQL Documentation*. https://www.postgresql.org/docs/
-- OASIS. *MQTT Version 5.0*. https://docs.oasis-open.org/mqtt/mqtt/v5.0/mqtt-v5.0.html
-- Python Software Foundation. *Python Documentation*. https://docs.python.org
-- Chacon, S., & Straub, B. (2014). *Pro Git*. Apress.
+1. **Robustez mediante Validación Multinivel:** La combinación de Pydantic para la validación sintáctica de payloads JSON y SQLAlchemy ORM para la validación semántica (existencia del sensor, estado activo, unidades y rangos físicos permitidos) evita la polución de la base de datos con datos anómalos o corruptos.
+2. **Garantía de Atomicidad en Telemetría Multivariable:** Implementar validación atómica en los mensajes MQTT garantiza que una falla en una magnitud individual (por ejemplo, unidad incorrecta o valor fuera de rango) descarte todo el lote, manteniendo la consistencia global del estado del sensor.
+3. **Manejo Riguroso de Zonas Horarias:** Almacenar la telemetría en UTC en PostgreSQL y realizar la conversión a la hora legal de Colombia (`America/Bogota`, UTC-5) en la capa de presentación asegura interoperabilidad internacional y claridad para el usuario final.
+4. **Mantenibilidad y Escalabilidad:** La arquitectura modular en capas (`api/`, `crud/`, `schemas/`, `models/`, `mqtt/`, `database/`) permite que el consumidor MQTT y la API REST evolucionen de forma independiente sin acoplamiento estrecho.

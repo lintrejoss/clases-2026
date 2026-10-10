@@ -1,7 +1,8 @@
 # Registro de Evidencias de Pruebas Obligatorias — Taller 2
 
-**Sensor Asignado:** AQ-004 (Calidad de aire en aulas)
-**Tópico MQTT:** `iot/sensors/AQ-004/data`
+**Estudiante:** Paulina Trejos  
+**Sensor Asignado:** AQ-004 (Calidad de aire en aulas)  
+**Tópico MQTT:** `iot/sensors/AQ-004/data`  
 **Fecha de Ejecución:** 2026-10-09 17:58:15 (Hora Colombia)
 
 ---

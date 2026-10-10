@@ -7,6 +7,7 @@
 - **Proyecto:** API para Adquisición, Validación y Consulta de Telemetría IoT
 - **Asignatura:** Aplicaciones y Servicios Web
 - **Programa:** Tecnología en Desarrollo de Software
+- **Estudiante:** Paulina Trejos
 - **Docente:** Juan Carlos Morales Guerra
 - **Fecha de Entrega:** Octubre 2026
 - **Sensor Asignado:** `AQ-004` (Calidad de aire en aulas)

@@ -3,6 +3,8 @@
 venv/
 env/
 ENV/
+**/.venv/
+**/venv/
 
 # Python cache and compiled files
 __pycache__/
@@ -46,6 +48,9 @@ htmlcov/
 # IDEs and editors
 .idea/
 .vscode/
+*.code-workspace
+.history/
+.vscode-test/
 *.swp
 *.swo
 *~
@@ -61,3 +66,6 @@ temp/
 *.tmp
 *.bak
 *.cache
+
+# Nested directories / labs
+laboratorio/

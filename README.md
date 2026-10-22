@@ -99,6 +99,29 @@ La API y su documentación estarán disponibles en:
 
 Desde `/docs` se puede registrar un usuario, iniciar sesión y probar los endpoints protegidos. Para el login se debe usar el formulario OAuth2 disponible en la documentación.
 
+## Usuarios de Prueba (Roles y Permisos)
+
+Para facilitar las pruebas de autenticación y autorización se incluye un script para poblar la base de datos con dos usuarios iniciales:
+
+```bash
+python seed.py
+```
+
+### Credenciales de prueba:
+
+| Usuario | Contraseña | Rol | Scopes asignados | Permisos |
+| :--- | :--- | :--- | :--- | :--- |
+| `usuario_lector` | `lector123` | `reader` | `read` | Solo lectura (`GET /api/me`, `GET /api/items`) |
+| `usuario_editor` | `editor123` | `editor` | `read`, `write` | Lectura y escritura (`POST`, `PUT`, `DELETE /api/items`) |
+
+## Evidencia y Pruebas Automatizadas
+
+Se incluye una suite de pruebas que valida el comportamiento de ambos perfiles y confirma que el control de acceso deniega la escritura al `reader` y se la concede al `editor`:
+
+```bash
+python test_api.py
+```
+
 ## Subir el proyecto a un repositorio propio
 
 Crear una nueva rama llamada `clase-7`:

@@ -1,5 +1,11 @@
 # Clase 7: Autenticación y Autorización con JWT
 
+## Información
+
+- **Estudiante:** Paulina Trejos
+- **Repositorio:** https://github.com/lintrejoss/clases-2026.git
+- **Rama:** `clase-8`
+
 ## Objetivo
 
 Construir una aplicación web básica con FastAPI que permita autenticar usuarios mediante tokens JWT y controlar el acceso a las operaciones de la API utilizando roles y scopes.

@@ -111,8 +111,8 @@ python seed.py
 
 | Usuario | Contraseña | Rol | Scopes asignados | Permisos |
 | :--- | :--- | :--- | :--- | :--- |
-| `usuario_lector` | `lector123` | `reader` | `read` | Solo lectura (`GET /api/me`, `GET /api/items`) |
-| `usuario_editor` | `editor123` | `editor` | `read`, `write` | Lectura y escritura (`POST`, `PUT`, `DELETE /api/items`) |
+| `Maku` | `123` | `reader` | `read` | Solo lectura (`GET /api/me`, `GET /api/items`) |
+| `Lin` | `aguapanela` | `editor` | `read`, `write` | Lectura y escritura (`POST`, `PUT`, `DELETE /api/items`) |
 
 ## Evidencia y Pruebas Automatizadas
 

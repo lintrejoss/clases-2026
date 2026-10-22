@@ -13,30 +13,30 @@ def seed_database():
     db = SessionLocal()
     try:
         # 1. Usuario Lector (role: reader -> scopes: read)
-        reader = db.query(User).filter(User.username == "usuario_lector").first()
+        reader = db.query(User).filter(User.username == "Maku").first()
         if not reader:
             reader = User(
-                username="usuario_lector",
-                hashed_password=hash_password("lector123"),
+                username="Maku",
+                hashed_password=hash_password("123"),
                 role="reader",
             )
             db.add(reader)
-            print("✓ Creado usuario: 'usuario_lector' | Rol: reader | Clave: lector123")
+            print("✓ Creado usuario: 'Maku' | Rol: reader | Clave: 123")
         else:
-            print("• Usuario 'usuario_lector' ya existía.")
+            print("• Usuario 'Maku' ya existía.")
 
         # 2. Usuario Editor (role: editor -> scopes: read, write)
-        editor = db.query(User).filter(User.username == "usuario_editor").first()
+        editor = db.query(User).filter(User.username == "Lin").first()
         if not editor:
             editor = User(
-                username="usuario_editor",
-                hashed_password=hash_password("editor123"),
+                username="Lin",
+                hashed_password=hash_password("aguapanela"),
                 role="editor",
             )
             db.add(editor)
-            print("✓ Creado usuario: 'usuario_editor' | Rol: editor | Clave: editor123")
+            print("✓ Creado usuario: 'Lin' | Rol: editor | Clave: aguapanela")
         else:
-            print("• Usuario 'usuario_editor' ya existía.")
+            print("• Usuario 'Lin' ya existía.")
 
         # 3. Item inicial de prueba
         if db.query(Item).count() == 0:
